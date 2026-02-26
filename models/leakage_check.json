@@ -1,0 +1,206 @@
+{
+  "passed": true,
+  "checks": [
+    {
+      "puuid_prefix": "8x3diZ19dQ13t0MM...",
+      "total_games": 39,
+      "feature_games": 27,
+      "monotonic_timestamps": true,
+      "no_temporal_overlap": true,
+      "churn_label_correct": true,
+      "game_count_correct": true,
+      "all_passed": true
+    },
+    {
+      "puuid_prefix": "0UKU337b9X5yKj3j...",
+      "total_games": 46,
+      "feature_games": 32,
+      "monotonic_timestamps": true,
+      "no_temporal_overlap": true,
+      "churn_label_correct": true,
+      "game_count_correct": true,
+      "all_passed": true
+    },
+    {
+      "puuid_prefix": "hozemz2mnjmrxpH4...",
+      "total_games": 39,
+      "feature_games": 27,
+      "monotonic_timestamps": true,
+      "no_temporal_overlap": true,
+      "churn_label_correct": true,
+      "game_count_correct": true,
+      "all_passed": true
+    },
+    {
+      "puuid_prefix": "NQX1fU4ngoSrEZmv...",
+      "total_games": 50,
+      "feature_games": 35,
+      "monotonic_timestamps": true,
+      "no_temporal_overlap": true,
+      "churn_label_correct": true,
+      "game_count_correct": true,
+      "all_passed": true
+    },
+    {
+      "puuid_prefix": "bRcv0e32jW0q62ow...",
+      "total_games": 44,
+      "feature_games": 30,
+      "monotonic_timestamps": true,
+      "no_temporal_overlap": true,
+      "churn_label_correct": true,
+      "game_count_correct": true,
+      "all_passed": true
+    },
+    {
+      "puuid_prefix": "z46-6e4-a4hZZd8J...",
+      "total_games": 48,
+      "feature_games": 33,
+      "monotonic_timestamps": true,
+      "no_temporal_overlap": true,
+      "churn_label_correct": true,
+      "game_count_correct": true,
+      "all_passed": true
+    },
+    {
+      "puuid_prefix": "mxdDxQlwfAFJnWBr...",
+      "total_games": 44,
+      "feature_games": 30,
+      "monotonic_timestamps": true,
+      "no_temporal_overlap": true,
+      "churn_label_correct": true,
+      "game_count_correct": true,
+      "all_passed": true
+    },
+    {
+      "puuid_prefix": "RhI4hVtixiUpthIZ...",
+      "total_games": 48,
+      "feature_games": 33,
+      "monotonic_timestamps": true,
+      "no_temporal_overlap": true,
+      "churn_label_correct": true,
+      "game_count_correct": true,
+      "all_passed": true
+    },
+    {
+      "puuid_prefix": "1PhDQVQ-SDAGn-7S...",
+      "total_games": 47,
+      "feature_games": 32,
+      "monotonic_timestamps": true,
+      "no_temporal_overlap": true,
+      "churn_label_correct": true,
+      "game_count_correct": true,
+      "all_passed": true
+    },
+    {
+      "puuid_prefix": "xMj6VH1M4_WH3Nlh...",
+      "total_games": 28,
+      "feature_games": 19,
+      "monotonic_timestamps": true,
+      "no_temporal_overlap": true,
+      "churn_label_correct": true,
+      "game_count_correct": true,
+      "all_passed": true
+    },
+    {
+      "puuid_prefix": "wPSh6BVqPsC6XtFl...",
+      "total_games": 46,
+      "feature_games": 32,
+      "monotonic_timestamps": true,
+      "no_temporal_overlap": true,
+      "churn_label_correct": true,
+      "game_count_correct": true,
+      "all_passed": true
+    },
+    {
+      "puuid_prefix": "xXlVstrweLiDahET...",
+      "total_games": 42,
+      "feature_games": 29,
+      "monotonic_timestamps": true,
+      "no_temporal_overlap": true,
+      "churn_label_correct": true,
+      "game_count_correct": true,
+      "all_passed": true
+    },
+    {
+      "puuid_prefix": "xztOylOjp9vOBmEn...",
+      "total_games": 50,
+      "feature_games": 35,
+      "monotonic_timestamps": true,
+      "no_temporal_overlap": true,
+      "churn_label_correct": true,
+      "game_count_correct": true,
+      "all_passed": true
+    },
+    {
+      "puuid_prefix": "hGgR2lZZGEBqyXfa...",
+      "total_games": 40,
+      "feature_games": 28,
+      "monotonic_timestamps": true,
+      "no_temporal_overlap": true,
+      "churn_label_correct": true,
+      "game_count_correct": true,
+      "all_passed": true
+    },
+    {
+      "puuid_prefix": "IPsmO304cP-BCNn-...",
+      "total_games": 41,
+      "feature_games": 28,
+      "monotonic_timestamps": true,
+      "no_temporal_overlap": true,
+      "churn_label_correct": true,
+      "game_count_correct": true,
+      "all_passed": true
+    },
+    {
+      "puuid_prefix": "bf95fKFyuVvOFXIv...",
+      "total_games": 44,
+      "feature_games": 30,
+      "monotonic_timestamps": true,
+      "no_temporal_overlap": true,
+      "churn_label_correct": true,
+      "game_count_correct": true,
+      "all_passed": true
+    },
+    {
+      "puuid_prefix": "m8GBqtVfOHRRz4g5...",
+      "total_games": 28,
+      "feature_games": 19,
+      "monotonic_timestamps": true,
+      "no_temporal_overlap": true,
+      "churn_label_correct": true,
+      "game_count_correct": true,
+      "all_passed": true
+    },
+    {
+      "puuid_prefix": "2iQT2IwX4merSYPJ...",
+      "total_games": 47,
+      "feature_games": 32,
+      "monotonic_timestamps": true,
+      "no_temporal_overlap": true,
+      "churn_label_correct": true,
+      "game_count_correct": true,
+      "all_passed": true
+    },
+    {
+      "puuid_prefix": "hqN3-zWJSyJOxUaw...",
+      "total_games": 48,
+      "feature_games": 33,
+      "monotonic_timestamps": true,
+      "no_temporal_overlap": true,
+      "churn_label_correct": true,
+      "game_count_correct": true,
+      "all_passed": true
+    },
+    {
+      "puuid_prefix": "6qZoB1SLyyegv2eY...",
+      "total_games": 48,
+      "feature_games": 33,
+      "monotonic_timestamps": true,
+      "no_temporal_overlap": true,
+      "churn_label_correct": true,
+      "game_count_correct": true,
+      "all_passed": true
+    }
+  ],
+  "n_players_checked": 20
+}

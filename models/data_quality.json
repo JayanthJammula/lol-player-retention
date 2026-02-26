@@ -1,0 +1,71 @@
+{
+  "passed": true,
+  "total_players": 248,
+  "checks": [
+    {
+      "name": "No missing values in features",
+      "passed": true,
+      "detail": {}
+    },
+    {
+      "name": "win_rate in [0, 1]",
+      "passed": true,
+      "violations": 0
+    },
+    {
+      "name": "gold_efficiency in [0, 5]",
+      "passed": true,
+      "violations": 0
+    },
+    {
+      "name": "kda in [0, 50]",
+      "passed": true,
+      "violations": 0
+    },
+    {
+      "name": "kill_death_ratio in [0, 50]",
+      "passed": true,
+      "violations": 0
+    },
+    {
+      "name": "total_games_played in [3, 500]",
+      "passed": true,
+      "violations": 0
+    },
+    {
+      "name": "avg_time_between_games_hrs in [0, 1000]",
+      "passed": true,
+      "violations": 0
+    },
+    {
+      "name": "play_frequency in [0, 200]",
+      "passed": true,
+      "violations": 0
+    },
+    {
+      "name": "feature_window_days in [0, 365]",
+      "passed": true,
+      "violations": 0
+    },
+    {
+      "name": "last_gap_days in [0, 365]",
+      "passed": true,
+      "violations": 0
+    },
+    {
+      "name": "Churn rate between 5% and 50%",
+      "passed": true,
+      "churn_rate": 0.2258
+    },
+    {
+      "name": "No duplicate player IDs",
+      "passed": true,
+      "duplicates": 0
+    },
+    {
+      "name": "No infinite values",
+      "passed": true,
+      "count": 0
+    }
+  ]
+}

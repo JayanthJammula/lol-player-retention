@@ -1,0 +1,22 @@
+{
+  "kda_trend": 0.07042221874833915,
+  "avg_cs": 0.06603113939022909,
+  "avg_vision_score": 0.05825937519266082,
+  "median_time_between_games_hrs": 0.05770901657309233,
+  "unique_play_days": 0.05560169739310151,
+  "kill_death_ratio": 0.055067113091541796,
+  "kda": 0.0535091810365313,
+  "feature_window_days": 0.05319989335618935,
+  "avg_gold_earned": 0.051627426634947855,
+  "play_frequency": 0.050982091683042116,
+  "last_gap_days": 0.04987318641035689,
+  "gold_efficiency": 0.0494681667945611,
+  "avg_damage": 0.04882311475026944,
+  "win_rate": 0.04555365344027763,
+  "avg_time_between_games_hrs": 0.04352205521396319,
+  "avg_champion_level": 0.04231043843137284,
+  "winrate_trend": 0.04230430264787702,
+  "avg_game_duration": 0.04151553910815567,
+  "unique_champions": 0.03487846747704987,
+  "total_games_played": 0.02934192262644123
+}
