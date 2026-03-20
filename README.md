@@ -1,8 +1,13 @@
 # League of Legends Player Churn Prediction
 
-A machine learning pipeline that predicts whether a League of Legends player will **churn** (disengage from the game) based on their historical gameplay patterns. Includes data collection from the Riot API, temporal feature engineering, five classification models, and an interactive Streamlit dashboard.
+A machine learning pipeline that predicts whether a League of Legends player will **churn** (disengage from the game) based on their historical gameplay patterns. Includes data collection from the Riot API, temporal feature engineering, five classification models, structured prediction outputs with validation, a regression test suite, and an interactive Streamlit dashboard.
 
-![Overview](screenshots/overview.png)
+<table>
+  <tr>
+    <td><img src="screenshots/Overview-1.png" width="500"/></td>
+    <td><img src="screenshots/Overview-2.png" width="500"/></td>
+  </tr>
+</table>
 
 ---
 
@@ -11,10 +16,11 @@ A machine learning pipeline that predicts whether a League of Legends player wil
 - [Motivation](#motivation)
 - [How It Works](#how-it-works)
 - [Features](#features)
-- [Models & Results](#models--results)
+- [Models and Results](#models-and-results)
 - [Dashboard](#dashboard)
 - [Project Structure](#project-structure)
 - [Getting Started](#getting-started)
+- [Running Tests](#running-tests)
 - [Tech Stack](#tech-stack)
 
 ---
@@ -33,8 +39,8 @@ Unlike naive approaches that use all of a player's data to predict their own lab
 
 ```
 Player's Match History (sorted by time)
-├── Feature Window (first 70% of games) → Compute 20 behavioral features
-└── Label Window (remaining 30% of games) → Determine churn label
+|-- Feature Window (first 70% of games) -> Compute 20 behavioral features
+|-- Label Window (remaining 30% of games) -> Determine churn label
 ```
 
 - **Churn definition**: A player is labeled as "churned" if the gap between the end of their feature window and their next game exceeds **6 hours**
@@ -47,13 +53,41 @@ Match data is collected live from the **Riot Games API** using a BFS-based playe
 1. Start from a seed player on the NA Challenger ladder
 2. Fetch their recent matches and discover new players from those games
 3. For each qualified player (10+ matches), pull up to 50 matches
-4. Rate-limited to stay within API constraints.
+4. Rate-limited with adaptive retry logic to stay within API constraints
+
+### Prediction Pipeline
+
+Predictions flow through a structured pipeline with validation at every step:
+
+```
+Raw Input (slider values / player data)
+  -> validate_feature_input()     [schema validation, range checks]
+  -> make_prediction()            [scaling, inference, structuring]
+  -> PredictionResult             [typed output with full metadata]
+  -> log_prediction()             [audit trail]
+  -> detect_feature_drift()       [distribution drift warnings]
+```
+
+Every prediction returns a typed `PredictionResult` with probability, label, confidence level, model version, and timestamp. Input validation catches bad data before it reaches any model, and feature drift detection flags inputs that fall far outside the training distribution.
+
+### Data Quality and Training Safeguards
+
+Training is gated behind 13 automated data quality checks (missing values, feature ranges, churn rate bounds, duplicate detection, infinite values). If any check fails, the pipeline halts with a clear error rather than training on corrupt data.
+
+Each training run generates:
+- **Model metadata** (`model_metadata.json`): version, training date, dataset hash, performance snapshot, hyperparameters
+- **Training statistics** (`training_stats.json`): per-feature mean, std, min, max for drift detection at prediction time
+- **Structured logs**: timestamped, leveled logs to `logs/`
+
+### Prediction Audit Trail
+
+Every prediction made through the dashboard is logged to `logs/prediction_audit.jsonl` with the model name, version, input features, output probability, and timestamp. This makes predictions fully traceable and debuggable after the fact.
 
 ---
 
 ## Features
 
-20 engineered features across four categories:
+20 engineered features across four categories, all computed **exclusively** from the feature window (first 70% of games):
 
 | Category | Features |
 |----------|----------|
@@ -62,11 +96,9 @@ Match data is collected live from the **Riot Games API** using a BFS-based playe
 | **Engagement** | `total_games_played`, `unique_play_days`, `avg_time_between_games_hrs`, `median_time_between_games_hrs`, `play_frequency`, `feature_window_days` |
 | **Trends** | `kda_trend`, `winrate_trend`, `last_gap_days` |
 
-All features are computed **exclusively** from the feature window (first 70% of games) to prevent data leakage.
-
 ---
 
-## Models & Results
+## Models and Results
 
 Six models were trained and evaluated (including a majority-class baseline):
 
@@ -81,44 +113,65 @@ Six models were trained and evaluated (including a majority-class baseline):
 
 **5-Fold Stratified Cross-Validation** (sklearn models):
 
-| Model | F1 (mean ± std) | ROC-AUC (mean ± std) |
+| Model | F1 (mean +/- std) | ROC-AUC (mean +/- std) |
 |-------|-----------------|----------------------|
-| Logistic Regression | 0.408 ± 0.151 | 0.638 ± 0.131 |
-| Random Forest | 0.000 ± 0.000 | 0.540 ± 0.058 |
-| XGBoost | 0.153 ± 0.086 | 0.546 ± 0.034 |
+| Logistic Regression | 0.408 +/- 0.151 | 0.638 +/- 0.131 |
+| Random Forest | 0.000 +/- 0.000 | 0.540 +/- 0.058 |
+| XGBoost | 0.153 +/- 0.086 | 0.546 +/- 0.034 |
 
-> **Key takeaway**: With 248 players and a 22.6% churn rate, Random Forest achieves the highest accuracy but struggles with recall. Logistic Regression has the best recall for identifying churned players. These results reflect the genuine difficulty of churn prediction with a small, real-world dataset no inflated metrics from data leakage.
+> **Key takeaway**: With 248 players and a 22.6% churn rate, these results reflect the genuine difficulty of churn prediction with a small, real-world dataset, with no inflated metrics from data leakage. Logistic Regression has the best recall for identifying churned players, while Random Forest achieves the highest overall accuracy.
 
 ---
 
 ## Dashboard
 
-An interactive **Streamlit** dashboard with 5 pages:
+An interactive **Streamlit** dashboard with 6 pages:
 
 ### 1. Overview
 Project summary, class distribution, dataset statistics, and data quality validation checks.
 
-![Overview](screenshots/overview.png)
+<table>
+  <tr>
+    <td><img src="screenshots/Overview-1.png" width="500"/></td>
+    <td><img src="screenshots/Overview-2.png" width="500"/></td>
+  </tr>
+</table>
 
 ### 2. Feature Analysis
-Explore feature distributions by class, box plot comparisons, correlation heatmaps, feature importance rankings, and statistical t-tests.
+Feature distributions by class, box plot comparisons, correlation heatmaps, feature importance rankings, and statistical t-tests. Includes programmatic leakage verification results.
 
-![Feature Analysis](screenshots/feature_analysis.png)
+<table>
+  <tr>
+    <td><img src="screenshots/Feature_Analysis_1.png" width="330"/></td>
+    <td><img src="screenshots/Feature_Analysis_2.png" width="330"/></td>
+    <td><img src="screenshots/Feature_Analysis_3.png" width="330"/></td>
+  </tr>
+</table>
 
 ### 3. Model Comparison
-Performance metrics table, ROC curves, confusion matrices, confidence intervals, training history plots, cross-validation results, precision-recall curves, and learning curves.
+Performance metrics table, ROC curves, confusion matrices, bootstrap 95% confidence intervals, training history plots, cross-validation results, precision-recall curves, and learning curves.
 
-![Model Comparison](screenshots/model_comparison.png)
+<table>
+  <tr>
+    <td><img src="screenshots/Mdoel_Comparision_1.png" width="500"/></td>
+    <td><img src="screenshots/Mdoel_Comparision_2.png" width="500"/></td>
+  </tr>
+</table>
 
 ### 4. Live Prediction
-Adjust sliders to simulate a player's stats and see real-time churn predictions with a probability gauge.
+Adjust sliders to simulate a player's stats and see real-time churn predictions with a probability gauge, confidence level, feature drift warnings, and prediction attribution (model version, training date, dataset hash).
 
-![Live Prediction](screenshots/live_prediction.png)
+![Live Prediction](screenshots/Live_Prediction.png)
 
 ### 5. Player Explorer
-Browse individual players, filter by churn status or games played, view per-model predictions and feature percentiles.
+Browse individual players, filter by churn status or games played, view per-model predictions with confidence levels and feature percentiles.
 
-![Player Explorer](screenshots/player_explorer.png)
+![Player Explorer](screenshots/Player_Explorer.png)
+
+### 6. Observability
+System health metrics, model registry with versions and training dates, recent prediction audit trail, data quality summary, and artifact inventory with file ages.
+
+![Observability](screenshots/Observability.png)
 
 ---
 
@@ -126,35 +179,46 @@ Browse individual players, filter by churn status or games played, view per-mode
 
 ```
 lol-player-retention/
-├── app.py                          # Streamlit dashboard (5 pages)
-├── train.py                        # Model training + validation pipeline
-├── collect_data.py                 # Riot API data collection (BFS discovery)
-├── feature_extraction_temporal.py  # Temporal split feature engineering
-├── feature_engineering.py          # Data loading, cleaning, quality checks
-├── feature_extraction.py           # Original feature extraction
-├── model.py                        # Original model definitions
-├── clean.py                        # Data cleaning utilities
-├── Riot_API_Data_Retrieving.py     # Original Riot API interface
-├── requirements.txt                # Python dependencies
-├── data/
-│   └── player_features_temporal.csv  # Processed player features (248 players)
-├── models/
-│   ├── logistic_regression.joblib
-│   ├── random_forest.joblib
-│   ├── xgboost_model.joblib
-│   ├── neural_network.keras
-│   ├── lstm_model.keras
-│   ├── scaler.joblib               # StandardScaler for tabular features
-│   ├── seq_scaler.joblib            # StandardScaler for LSTM sequences
-│   ├── model_comparison.json        # All model metrics
-│   ├── cv_results.json              # Cross-validation results
-│   ├── feature_importance.json      # Random Forest feature importances
-│   ├── data_quality.json            # Data quality check results
-│   ├── leakage_check.json           # Temporal integrity verification
-│   ├── learning_curves.json         # Learning curves for LR & RF
-│   ├── training_features.json       # List of 20 feature names
-│   └── plots/                       # Saved visualizations
-└── screenshots/                     # Dashboard screenshots
+|
+|-- app.py                          # Streamlit dashboard (6 pages)
+|-- train.py                        # Model training + validation pipeline
+|-- collect_data.py                 # Riot API data collection (BFS discovery)
+|-- feature_extraction_temporal.py  # Temporal split feature engineering
+|-- feature_engineering.py          # Data loading, cleaning, quality checks
+|-- schemas.py                      # Structured output types, validation, model metadata
+|-- infrastructure.py               # Safe loading, retry logic, quality gates, drift detection
+|-- audit.py                        # Prediction audit trail
+|-- logging_config.py               # Centralized logging configuration
+|
+|-- tests/
+|   |-- test_data_quality.py        # Data quality regression tests
+|   |-- test_model_performance.py   # Model performance threshold tests
+|   |-- test_predictions.py         # Prediction pipeline contract tests
+|   |-- test_feature_engineering.py # Feature engineering correctness tests
+|
+|-- requirements.txt
+|-- data/
+|   |-- player_features_temporal.csv  # Processed player features (248 players)
+|-- models/
+|   |-- logistic_regression.joblib
+|   |-- random_forest.joblib
+|   |-- xgboost_model.joblib
+|   |-- neural_network.keras
+|   |-- lstm_model.keras
+|   |-- scaler.joblib               # StandardScaler for tabular features
+|   |-- seq_scaler.joblib            # StandardScaler for LSTM sequences
+|   |-- model_comparison.json        # All model metrics
+|   |-- model_metadata.json          # Model provenance (versions, hashes, dates)
+|   |-- training_stats.json          # Per-feature statistics for drift detection
+|   |-- cv_results.json              # Cross-validation results
+|   |-- feature_importance.json      # Random Forest feature importances
+|   |-- data_quality.json            # Data quality check results
+|   |-- leakage_check.json           # Temporal integrity verification
+|   |-- learning_curves.json
+|   |-- training_features.json
+|   |-- plots/
+|-- logs/                            # Structured logs and prediction audit trail
+|-- screenshots/
 ```
 
 ---
@@ -184,15 +248,13 @@ streamlit run app.py
 
 ### Retrain Models (optional)
 
-To retrain all models from the existing feature data:
-
 ```bash
 python train.py
 ```
 
-### Collect Fresh Data (optional)
+This runs data quality checks, verifies temporal integrity, trains all 6 models, generates model metadata and training statistics, and outputs structured logs to `logs/`.
 
-To collect new match data from the Riot API:
+### Collect Fresh Data (optional)
 
 ```bash
 # Create a .env file with your API key
@@ -210,6 +272,16 @@ python train.py
 
 ---
 
+## Running Tests
+
+```bash
+python -m pytest tests/ -v
+```
+
+35 tests validate data quality, model performance thresholds, prediction pipeline contracts, and feature engineering correctness. Tests catch data corruption, model degradation, and schema violations.
+
+---
+
 ## Tech Stack
 
 - **Data Collection**: Riot Games API, `requests`
@@ -218,7 +290,5 @@ python train.py
 - **Deep Learning**: `tensorflow` / `keras` (Dense NN + Bidirectional LSTM)
 - **Dashboard**: `streamlit`, `plotly`
 - **Visualization**: `matplotlib`, `seaborn`
-
----
-
-> **Note**: The current results are based on 250 players. A 500-player dataset update is coming soon with retrained models and updated metrics.
+- **Testing**: `pytest`, `unittest`
+- **Logging**: Python `logging` module

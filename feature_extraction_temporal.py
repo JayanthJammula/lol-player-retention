@@ -10,6 +10,9 @@ import pandas as pd
 import numpy as np
 import os
 import argparse
+import logging
+
+logger = logging.getLogger('churn_predictor.data')
 
 # Configuration
 FEATURE_SPLIT_RATIO = 0.7   # First 70% of games → features
@@ -24,7 +27,7 @@ DEFAULT_OUTPUT = os.path.join(OUTPUT_DIR, 'player_features_temporal.csv')
 # Feature extraction
 def extract_temporal_features(input_csv, output_csv):
     """Extract player-level temporal features from raw match data."""
-    print(f"Reading {input_csv}...")
+    logger.info(f"Reading {input_csv}...")
     df = pd.read_csv(input_csv, low_memory=False)
 
     # Convert timestamps
@@ -41,9 +44,9 @@ def extract_temporal_features(input_csv, output_csv):
 
     # Group by player
     grouped = df.groupby('puuid')
-    print(f"Total players: {grouped.ngroups}")
-    print(f"Players with >= {MIN_GAMES} games: "
-          f"{(grouped.size() >= MIN_GAMES).sum()}")
+    logger.info(f"Total players: {grouped.ngroups}")
+    logger.info(f"Players with >= {MIN_GAMES} games: "
+                f"{(grouped.size() >= MIN_GAMES).sum()}")
 
     player_features = []
     skipped = 0
@@ -173,13 +176,12 @@ def extract_temporal_features(input_csv, output_csv):
     os.makedirs(os.path.dirname(output_csv), exist_ok=True)
     result_df.to_csv(output_csv, index=False)
 
-    print(f"\nResults:")
-    print(f"  Players processed: {len(player_features)}")
-    print(f"  Players skipped (< {MIN_GAMES} games): {skipped}")
-    print(f"  Churn rate: {result_df['churn'].mean():.1%}")
-    print(f"  Churn distribution:\n{result_df['churn'].value_counts().to_string()}")
-    print(f"  Features: {len(result_df.columns) - 2} (excluding puuid & churn)")
-    print(f"  Output: {output_csv}")
+    logger.info(f"Results: {len(player_features)} players processed, "
+                f"{skipped} skipped (< {MIN_GAMES} games)")
+    logger.info(f"Churn rate: {result_df['churn'].mean():.1%}")
+    logger.info(f"Churn distribution:\n{result_df['churn'].value_counts().to_string()}")
+    logger.info(f"Features: {len(result_df.columns) - 2} (excluding puuid & churn)")
+    logger.info(f"Output: {output_csv}")
 
     return result_df
 
@@ -286,7 +288,7 @@ def validate_temporal_integrity(input_csv=None, features_csv=None,
 def build_lstm_sequences(input_csv, player_df, max_seq_len=20):
     """
     Build per-player game sequences for LSTM input.
-    Uses the same temporal split — only feature-window games.
+    Uses the same temporal split. Only uses feature-window games.
     Returns: X_seq array of shape (n_players, max_seq_len, n_seq_features)
     """
     raw_df = pd.read_csv(input_csv, low_memory=False)

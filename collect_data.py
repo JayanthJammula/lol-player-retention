@@ -16,9 +16,12 @@ import json
 import csv
 import os
 import sys
+import logging
 from dotenv import load_dotenv
 
-# CONFIGURATION — API key loaded from .env file
+logger = logging.getLogger('churn_predictor.collect')
+
+# CONFIGURATION: API key loaded from .env file
 load_dotenv()
 API_KEY = os.getenv('RIOT_API_KEY', '')
 REGION = 'americas'
@@ -60,7 +63,7 @@ class RateLimiter:
         self.timestamps = [t for t in self.timestamps if now - t < self.period]
         if len(self.timestamps) >= self.max_calls:
             sleep_time = self.period - (now - self.timestamps[0]) + 1
-            print(f"  Rate limit: sleeping {sleep_time:.0f}s...")
+            logger.info(f"Rate limit: sleeping {sleep_time:.0f}s...")
             time.sleep(max(sleep_time, 0))
         self.timestamps.append(time.time())
         
@@ -75,17 +78,17 @@ def api_get(url, retries=3):
             resp = requests.get(url, headers=HEADERS, timeout=15)
             if resp.status_code == 429:
                 retry_after = int(resp.headers.get('Retry-After', 10))
-                print(f"  429 Too Many Requests. Waiting {retry_after}s...")
+                logger.warning(f"429 Too Many Requests. Waiting {retry_after}s...")
                 time.sleep(retry_after + 1)
                 continue
             if resp.status_code == 403:
-                print("ERROR: 403 Forbidden. Your API key may be expired.")
-                print("Get a new key at https://developer.riotgames.com/")
+                logger.error("403 Forbidden. Your API key may be expired.")
+                logger.error("Get a new key at https://developer.riotgames.com/")
                 sys.exit(1)
             resp.raise_for_status()
             return resp.json()
         except requests.exceptions.RequestException as e:
-            print(f"  Request error (attempt {attempt+1}): {e}")
+            logger.warning(f"Request error (attempt {attempt+1}): {e}")
             time.sleep(3)
     return None
 
@@ -159,7 +162,7 @@ def collect():
     os.makedirs(DATA_DIR, exist_ok=True)
 
     if not API_KEY:
-        print("ERROR: Paste your Riot API key in the API_KEY variable at the top of this file.")
+        logger.error("Paste your Riot API key in the .env file: RIOT_API_KEY=your_key_here")
         sys.exit(1)
 
     # Check for resume
@@ -170,8 +173,8 @@ def collect():
         qualified_count = state['qualified_count']
         processed_matches = set(state.get('processed_matches', []))
         total_rows = state.get('total_rows', 0)
-        print(f"Resuming: {qualified_count} qualified players, "
-              f"{len(seen_puuids)} seen, {len(queue)} in queue")
+        logger.info(f"Resuming: {qualified_count} qualified players, "
+                    f"{len(seen_puuids)} seen, {len(queue)} in queue")
     else:
         queue = [SEED_PUUID]
         seen_puuids = {SEED_PUUID}
@@ -197,7 +200,7 @@ def collect():
             match_ids = get_match_ids(puuid, count=100)
 
             if len(match_ids) < MIN_MATCHES:
-                # Not enough matches — skip but discover players from first match
+                # Not enough matches; skip but discover players from first match
                 if match_ids:
                     first_match = get_match_detail(match_ids[0])
                     if first_match:
@@ -206,18 +209,18 @@ def collect():
                                 seen_puuids.add(new_puuid)
                                 queue.append(new_puuid)
                 if players_checked % 20 == 0:
-                    print(f"  Checked {players_checked} players, "
-                          f"{qualified_count} qualified, {len(queue)} in queue")
+                    logger.info(f"Checked {players_checked} players, "
+                                f"{qualified_count} qualified, {len(queue)} in queue")
                 continue
 
-            # Step 2: This player qualifies — fetch match details
+            # Step 2: This player qualifies, fetch match details
             qualified_count += 1
             matches_to_get = match_ids[:MATCHES_TO_FETCH]
             player_rows = 0
 
-            print(f"[{qualified_count}/{MAX_QUALIFIED_PLAYERS}] "
-                  f"Player {puuid[:16]}... — {len(match_ids)} matches, "
-                  f"fetching {len(matches_to_get)}")
+            logger.info(f"[{qualified_count}/{MAX_QUALIFIED_PLAYERS}] "
+                        f"Player {puuid[:16]}..., {len(match_ids)} matches, "
+                        f"fetching {len(matches_to_get)}")
 
             for match_id in matches_to_get:
                 if match_id in processed_matches:
@@ -242,7 +245,7 @@ def collect():
                         queue.append(new_puuid)
 
             csv_file.flush()
-            print(f"  Saved {player_rows} matches. Total rows: {total_rows}")
+            logger.info(f"Saved {player_rows} matches. Total rows: {total_rows}")
 
             # Save progress every 5 qualified players
             if qualified_count % 5 == 0:
@@ -253,10 +256,10 @@ def collect():
                     'processed_matches': list(processed_matches),
                     'total_rows': total_rows,
                 })
-                print(f"  Progress saved. Queue: {len(queue)}")
+                logger.info(f"Progress saved. Queue: {len(queue)}")
 
     except KeyboardInterrupt:
-        print("\nInterrupted! Saving progress...")
+        logger.warning("Interrupted! Saving progress...")
         save_progress({
             'queue': queue[:5000],
             'seen_puuids': list(seen_puuids)[:50000],
@@ -264,15 +267,13 @@ def collect():
             'processed_matches': list(processed_matches),
             'total_rows': total_rows,
         })
-        print("Progress saved. Run again to resume.")
+        logger.info("Progress saved. Run again to resume.")
     finally:
         csv_file.close()
 
-    print(f"\nCollection complete!")
-    print(f"  Qualified players: {qualified_count}")
-    print(f"  Total match rows: {total_rows}")
-    print(f"  Players checked: {players_checked}")
-    print(f"  Output: {RAW_CSV}")
+    logger.info(f"Collection complete! {qualified_count} qualified players, "
+                f"{total_rows} match rows, {players_checked} players checked")
+    logger.info(f"Output: {RAW_CSV}")
 
 
 if __name__ == '__main__':

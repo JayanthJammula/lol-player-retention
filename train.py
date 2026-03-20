@@ -5,6 +5,8 @@ features, evaluates them, and saves all artifacts to the models/ directory.
 """
 import os
 import json
+import time
+import hashlib
 import warnings
 import numpy as np
 import pandas as pd
@@ -38,8 +40,19 @@ from tensorflow.keras.regularizers import l2
 
 from feature_engineering import load_and_clean, get_training_features, run_data_quality_checks
 from feature_extraction_temporal import build_lstm_sequences, validate_temporal_integrity
+from logging_config import setup_logging, get_training_logger
+from infrastructure import (
+    DataQualityGate, compute_training_stats, save_training_stats
+)
+from schemas import ModelMetadata, save_model_metadata
 
 warnings.filterwarnings('ignore')
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+setup_logging()
+logger = get_training_logger()
 
 # ---------------------------------------------------------------------------
 # Directories
@@ -47,6 +60,7 @@ warnings.filterwarnings('ignore')
 MODEL_DIR = './models'
 PLOT_DIR = os.path.join(MODEL_DIR, 'plots')
 RAW_CSV = './data/raw_matches.csv'
+FEATURES_CSV = './data/player_features_temporal.csv'
 
 
 def ensure_dirs():
@@ -155,7 +169,7 @@ def train_neural_network(X_train, y_train, X_test, y_test):
 
 def train_lstm_sequential(X_train_seq, y_train, X_test_seq, y_test):
     """
-    LSTM with proper sequential input — per-player game sequences.
+    LSTM with proper sequential input: per-player game sequences.
     Input shape: (N, max_seq_len, n_per_game_features)
     This LSTM can genuinely learn temporal patterns (performance trends,
     gap patterns, declining engagement over recent games).
@@ -238,6 +252,11 @@ def evaluate_model(model, X_test, y_test, model_name, is_lstm_seq=False):
     ]:
         ci = bootstrap_ci(y_test.values, y_pred, metric_fn)
         metrics[f'{metric_name}_ci'] = ci
+
+    logger.info(
+        f"{model_name}: accuracy={metrics['accuracy']:.4f}, "
+        f"f1={metrics['f1']:.4f}, roc_auc={metrics['roc_auc']:.4f}"
+    )
 
     return metrics
 
@@ -389,7 +408,7 @@ def save_comparison(all_results, feature_names):
     ax.plot([0, 1], [0, 1], 'k--', label='Random')
     ax.set_xlabel('False Positive Rate')
     ax.set_ylabel('True Positive Rate')
-    ax.set_title('ROC Curves — Model Comparison')
+    ax.set_title('ROC Curves: Model Comparison')
     ax.legend(loc='lower right')
     fig.tight_layout()
     fig.savefig(os.path.join(PLOT_DIR, 'roc_curves.png'), dpi=150)
@@ -424,11 +443,11 @@ def save_comparison(all_results, feature_names):
             'ROC-AUC': f"{metrics['roc_auc']:.4f}",
         })
     summary_df = pd.DataFrame(summary_rows)
-    print("\n" + "=" * 70)
-    print("MODEL COMPARISON")
-    print("=" * 70)
-    print(summary_df.to_string(index=False))
-    print("=" * 70)
+    logger.info("=" * 70)
+    logger.info("MODEL COMPARISON")
+    logger.info("=" * 70)
+    logger.info("\n" + summary_df.to_string(index=False))
+    logger.info("=" * 70)
 
 
 def save_training_plots(nn_hist_path, lstm_hist_path):
@@ -444,14 +463,14 @@ def save_training_plots(nn_hist_path, lstm_hist_path):
 
         axes[0][col].plot(hist['accuracy'], label='Train')
         axes[0][col].plot(hist['val_accuracy'], label='Validation')
-        axes[0][col].set_title(f'{label} — Accuracy')
+        axes[0][col].set_title(f'{label}: Accuracy')
         axes[0][col].set_xlabel('Epoch')
         axes[0][col].set_ylabel('Accuracy')
         axes[0][col].legend()
 
         axes[1][col].plot(hist['loss'], label='Train')
         axes[1][col].plot(hist['val_loss'], label='Validation')
-        axes[1][col].set_title(f'{label} — Loss')
+        axes[1][col].set_title(f'{label}: Loss')
         axes[1][col].set_xlabel('Epoch')
         axes[1][col].set_ylabel('Loss')
         axes[1][col].legend()
@@ -466,33 +485,42 @@ def save_training_plots(nn_hist_path, lstm_hist_path):
 # ---------------------------------------------------------------------------
 def main():
     ensure_dirs()
+    start_time = time.time()
 
-    print("Loading data...")
+    logger.info("Loading data...")
     X_train, X_test, y_train, y_test, feature_names, df = load_data()
 
-    print(f"Dataset: {len(df)} players, {len(feature_names)} features")
-    print(f"Train: {len(X_train)}, Test: {len(X_test)}")
-    print(f"Churn rate: {df['churn'].mean():.1%}")
+    logger.info(
+        f"Dataset: {len(df)} players, {len(feature_names)} features, "
+        f"train={len(X_train)}, test={len(X_test)}, "
+        f"churn_rate={df['churn'].mean():.1%}"
+    )
 
     # --- Data quality checks ---
-    print("Running data quality checks...")
+    logger.info("Running data quality checks...")
     dq_report = run_data_quality_checks(df)
     n_passed = sum(1 for c in dq_report['checks'] if c['passed'])
-    print(f"  Data quality: {n_passed}/{len(dq_report['checks'])} checks passed")
+    logger.info(f"Data quality: {n_passed}/{len(dq_report['checks'])} checks passed")
+
+    # Enforce quality gate: halt training if checks fail
+    gate = DataQualityGate(dq_report)
+    gate.enforce()
 
     # --- Leakage detection ---
-    print("Running temporal integrity check...")
+    logger.info("Running temporal integrity check...")
     integrity = validate_temporal_integrity()
-    print(f"  Leakage check: {'PASSED' if integrity['passed'] else 'FAILED'} "
-          f"({integrity['n_players_checked']} players verified)")
+    logger.info(
+        f"Leakage check: {'PASSED' if integrity['passed'] else 'FAILED'} "
+        f"({integrity['n_players_checked']} players verified)"
+    )
 
-    print("Scaling features...")
+    logger.info("Scaling features...")
     X_train_s, X_test_s, scaler = scale_features(X_train, X_test)
 
     all_results = {}
 
     # --- Baseline ---
-    print("Training Baseline (Majority Class)...")
+    logger.info("Training Baseline (Majority Class)...")
     baseline = DummyClassifier(strategy='most_frequent', random_state=42)
     baseline.fit(X_train_s, y_train)
     all_results['Baseline (Majority)'] = evaluate_model(
@@ -500,33 +528,33 @@ def main():
     )
 
     # --- Sklearn models ---
-    print("Training Logistic Regression...")
+    logger.info("Training Logistic Regression...")
     lr = train_logistic_regression(X_train_s, y_train)
     all_results['Logistic Regression'] = evaluate_model(
         lr, X_test_s, y_test, 'Logistic Regression'
     )
 
-    print("Training Random Forest...")
+    logger.info("Training Random Forest...")
     rf = train_random_forest(X_train_s, y_train)
     all_results['Random Forest'] = evaluate_model(
         rf, X_test_s, y_test, 'Random Forest'
     )
 
-    print("Training XGBoost...")
+    logger.info("Training XGBoost...")
     xgb = train_xgboost(X_train_s, y_train)
     all_results['XGBoost'] = evaluate_model(
         xgb, X_test_s, y_test, 'XGBoost'
     )
 
     # --- Dense NN ---
-    print("Training Dense Neural Network (50 epochs)...")
+    logger.info("Training Dense Neural Network (50 epochs)...")
     nn, nn_hist = train_neural_network(X_train_s, y_train, X_test_s, y_test)
     all_results['Dense NN'] = evaluate_model(
         nn, X_test_s, y_test, 'Dense NN'
     )
 
     # --- LSTM with proper sequences ---
-    print("Building LSTM sequences from raw match data...")
+    logger.info("Building LSTM sequences from raw match data...")
     X_seq_all, seq_feature_names = build_lstm_sequences(RAW_CSV, df)
 
     # Split sequences using the same train/test indices
@@ -556,8 +584,8 @@ def main():
 
     joblib.dump(seq_scaler, os.path.join(MODEL_DIR, 'seq_scaler.joblib'))
 
-    print(f"LSTM input shape: {X_train_seq.shape}")
-    print("Training LSTM with sequential input (50 epochs)...")
+    logger.info(f"LSTM input shape: {X_train_seq.shape}")
+    logger.info("Training LSTM with sequential input (50 epochs)...")
     lstm, lstm_hist = train_lstm_sequential(
         X_train_seq, y_train, X_test_seq, y_test
     )
@@ -566,7 +594,7 @@ def main():
     )
 
     # --- Feature importance ---
-    print("Computing feature importance...")
+    logger.info("Computing feature importance...")
     compute_feature_importance(rf, feature_names)
 
     # --- Save comparison + plots ---
@@ -576,21 +604,66 @@ def main():
         os.path.join(MODEL_DIR, 'lstm_history.json'),
     )
 
-    # --- Cross-validation (sklearn models only — NN/LSTM too slow for 5x) ---
-    print("\nRunning 5-fold cross-validation on sklearn models...")
+    # --- Cross-validation (sklearn models only, NN/LSTM too slow for 5x) ---
+    logger.info("Running 5-fold cross-validation on sklearn models...")
     cv_results = cross_validate_models(df[feature_names], df['churn'])
     for name, res in cv_results.items():
-        print(f"  {name}: F1={res['mean']['f1']:.3f} +/- {res['std']['f1']:.3f}, "
-              f"AUC={res['mean']['roc_auc']:.3f} +/- {res['std']['roc_auc']:.3f}")
+        logger.info(
+            f"  {name}: F1={res['mean']['f1']:.3f} +/- {res['std']['f1']:.3f}, "
+            f"AUC={res['mean']['roc_auc']:.3f} +/- {res['std']['roc_auc']:.3f}"
+        )
 
     # --- Learning curves ---
-    print("\nComputing learning curves...")
+    logger.info("Computing learning curves...")
     lc_results = compute_learning_curves(df[feature_names], df['churn'])
     for name in lc_results:
-        print(f"  {name}: done")
+        logger.info(f"  {name}: done")
 
-    print("\nAll models and artifacts saved to ./models/")
-    print("Run: streamlit run app.py")
+    # --- Model metadata (provenance tracking) ---
+    logger.info("Generating model metadata...")
+    from datetime import datetime, timezone
+    training_date = datetime.now(timezone.utc).isoformat()
+    dataset_hash = ModelMetadata.compute_dataset_hash(FEATURES_CSV)
+
+    metadata_list = []
+    model_configs = {
+        'Logistic Regression': {'max_iter': 1000, 'class_weight': 'balanced'},
+        'Random Forest': {'n_estimators': 200, 'max_depth': 10, 'class_weight': 'balanced'},
+        'XGBoost': {'n_estimators': 200, 'max_depth': 5, 'learning_rate': 0.1},
+        'Dense NN': {'epochs': 50, 'batch_size': 32, 'layers': [128, 64, 32, 1]},
+        'LSTM (Sequential)': {'epochs': 50, 'batch_size': 32, 'lstm_units': [64, 32]},
+        'Baseline (Majority)': {'strategy': 'most_frequent'},
+    }
+
+    for model_name, metrics in all_results.items():
+        metadata_list.append(ModelMetadata(
+            model_name=model_name,
+            model_version="1.0",
+            training_date=training_date,
+            dataset_hash=dataset_hash,
+            dataset_size=len(df),
+            performance_snapshot={
+                'accuracy': metrics['accuracy'],
+                'precision': metrics['precision'],
+                'recall': metrics['recall'],
+                'f1': metrics['f1'],
+                'roc_auc': metrics['roc_auc'],
+            },
+            feature_names=feature_names,
+            hyperparameters=model_configs.get(model_name, {}),
+        ))
+
+    save_model_metadata(metadata_list)
+    logger.info(f"Model metadata saved for {len(metadata_list)} models")
+
+    # --- Training stats (for drift detection at prediction time) ---
+    logger.info("Computing training statistics for drift detection...")
+    stats = compute_training_stats(X_train, feature_names)
+    save_training_stats(stats)
+
+    elapsed = time.time() - start_time
+    logger.info(f"Training complete in {elapsed:.1f}s. All artifacts saved to {MODEL_DIR}/")
+    logger.info("Run: streamlit run app.py")
 
 
 if __name__ == '__main__':

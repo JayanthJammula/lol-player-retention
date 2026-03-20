@@ -7,6 +7,9 @@ import pandas as pd
 import numpy as np
 import json
 import os
+import logging
+
+logger = logging.getLogger('churn_predictor.data')
 
 
 def load_and_clean(path='./data/player_features_temporal.csv'):
@@ -30,7 +33,7 @@ def load_and_clean(path='./data/player_features_temporal.csv'):
 def get_training_features():
     """
     Return feature columns for model training.
-    All features are computed from the historical (feature) window only —
+    All features are computed from the historical (feature) window only --
     no data leakage.
     """
     return [
@@ -62,7 +65,7 @@ def get_training_features():
 
 
 def get_all_features():
-    """Return all feature columns (same as training — no leakage exclusions)."""
+    """Return all feature columns (same as training, no leakage exclusions)."""
     return get_training_features()
 
 
@@ -143,13 +146,16 @@ def run_data_quality_checks(df=None, save_path='./models/data_quality.json'):
         with open(save_path, 'w') as f:
             json.dump(report, f, indent=2)
 
+    n_passed = sum(1 for c in report['checks'] if c['passed'])
+    logger.info(f"Data quality: {n_passed}/{len(report['checks'])} checks passed")
+
     return report
 
 
 if __name__ == '__main__':
     df = load_and_clean()
-    print(f"Shape: {df.shape}")
-    print(f"Columns: {list(df.columns)}")
-    print(f"Training features ({len(get_training_features())}): {get_training_features()}")
-    print(f"\nChurn distribution:\n{df['churn'].value_counts()}")
-    print(f"Churn rate: {df['churn'].mean():.1%}")
+    logger.info(f"Shape: {df.shape}")
+    logger.info(f"Columns: {list(df.columns)}")
+    logger.info(f"Training features ({len(get_training_features())}): {get_training_features()}")
+    logger.info(f"Churn distribution:\n{df['churn'].value_counts()}")
+    logger.info(f"Churn rate: {df['churn'].mean():.1%}")
